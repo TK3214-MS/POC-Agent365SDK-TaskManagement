@@ -53,7 +53,7 @@ export function validateClaims(payload: JWTPayload): {
   if (payload.iss !== expectedIss) {
     return {
       valid: false,
-      error: `Invalid issuer. Expected: ${expectedIss}, Got: ${payload.iss}`,
+      error: `Invalid issuer. Expected: ${expectedIss}, Got: ${String(payload.iss)}`,
     };
   }
 
@@ -61,7 +61,7 @@ export function validateClaims(payload: JWTPayload): {
   if (payload.aud !== env.apiAudience) {
     return {
       valid: false,
-      error: `Invalid audience. Expected: ${env.apiAudience}, Got: ${payload.aud}`,
+      error: `Invalid audience. Expected: ${env.apiAudience}, Got: ${String(payload.aud)}`,
     };
   }
 

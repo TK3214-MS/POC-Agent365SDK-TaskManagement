@@ -65,15 +65,19 @@ async function handleActivityRequest(req: Request, res: Response): Promise<void>
  * Handle standard JSON request (original implementation)
  */
 async function handleJsonRequest(req: Request, res: Response): Promise<void> {
-  // Apply authentication
-  await new Promise<void>((resolve, reject) => {
-    authenticateJwt(req, res, (err?: unknown) => {
-      if (err) reject(err);
-      else resolve();
-    });
+  // Apply authentication (middleware will send error response if auth fails)
+  let authFailed = false;
+  await authenticateJwt(req, res, () => {
+    // Auth successful, continue processing
+  }).catch(() => {
+    authFailed = true;
   });
 
-  await trace.getTracer('messages-handler').startActiveSpan('POST /api/messages', async (span) => {
+  if (authFailed) {
+    return; // Auth failed, response already sent by middleware
+  }
+
+  await trace.getTracer('messages-handler').startActiveSpan('POST /api/messages', async (span): Promise<void> => {
     try {
       // Validate request payload
       const validationResult = RequestPayloadSchema.safeParse(req.body);
@@ -153,10 +157,7 @@ async function handleJsonRequest(req: Request, res: Response): Promise<void> {
 
           const results = await executor.executeAll(
             enrichedTodos,
-            extractionResult.risks,
-            payload.meetingTitle,
-            extractionResult.decisions.length,
-            payload.policy.allowAutoNotify
+            extractionResult.risks
           );
 
           executionResults = results;
@@ -169,18 +170,18 @@ async function handleJsonRequest(req: Request, res: Response): Promise<void> {
           console.error('❌ Error executing actions:', error);
           span.setAttribute('execution.error', (error as Error).message);
         }
-      }
 
-      // Send notification (Agent 365 SDK)
-      if (payload.policy.allowAutoNotify) {
-        await sendMeetingSummaryNotification(
-          payload.meetingTitle,
-          enrichedTodos.length,
-          extractionResult.risks.length,
-          extractionResult.decisions.length
-        ).catch((error) => {
-          console.error('❌ Failed to send notification:', error);
-        });
+        // Send notification using Agent 365 SDK (only when actions are executed)
+        if (payload.policy.allowAutoNotify) {
+          void sendMeetingSummaryNotification(
+            payload.meetingTitle,
+            enrichedTodos.length,
+            extractionResult.risks.length,
+            extractionResult.decisions.length
+          ).catch((error: unknown) => {
+            console.error('❌ Failed to send notification:', error);
+          });
+        }
       }
 
       // Build response

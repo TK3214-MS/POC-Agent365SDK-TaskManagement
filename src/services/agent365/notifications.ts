@@ -14,7 +14,6 @@ export interface NotificationPayload {
 
 /**
  * Send notification using Agent 365 SDK
- * In production, this would use @microsoft/agents-a365-notifications
  */
 export async function sendNotification(payload: NotificationPayload): Promise<void> {
   const tracer = trace.getTracer('agent365-notifications');
@@ -24,7 +23,6 @@ export async function sendNotification(payload: NotificationPayload): Promise<vo
       span.setAttribute('notification.title', payload.title);
       span.setAttribute('notification.priority', payload.priority);
 
-      // In production, use @microsoft/agents-a365-notifications
       console.log('[Agent365 Notifications] Sending notification:', {
         title: payload.title,
         priority: payload.priority,

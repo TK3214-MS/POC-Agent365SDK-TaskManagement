@@ -12,21 +12,23 @@ export function telemetryMiddleware(req: Request, res: Response, next: NextFunct
     // Set basic HTTP attributes
     span.setAttribute('http.method', req.method);
     span.setAttribute('http.url', req.url);
-    span.setAttribute('http.route', req.route?.path || req.path);
+    const route = req.route as { path?: string } | undefined;
+    const routePath: string = route?.path ?? req.path;
+    span.setAttribute('http.route', routePath);
     span.setAttribute('http.user_agent', req.headers['user-agent'] || 'unknown');
 
     // Attach trace context to request
     (req as Request & { traceId: string }).traceId = span.spanContext().traceId;
 
     // Log sanitized request body (only for debugging)
-    if (req.body && Object.keys(req.body).length > 0) {
+    if (req.body && Object.keys(req.body as object).length > 0) {
       const sanitizedBody = sanitizeObject(req.body as Record<string, unknown>);
       span.setAttribute('http.request.body_summary', JSON.stringify(sanitizedBody));
     }
 
     // Capture response
     const originalSend = res.send.bind(res);
-    res.send = function (body: unknown) {
+    res.send = function (body: unknown): Response {
       span.setAttribute('http.status_code', res.statusCode);
 
       if (res.statusCode >= 400) {

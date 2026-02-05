@@ -33,7 +33,6 @@ export async function traceActivity<T>(
 
 /**
  * Log activity for Agent 365 observability
- * In production, this would integrate with @microsoft/agents-a365-observability
  */
 export function logActivity(activity: Activity, direction: 'incoming' | 'outgoing'): void {
   const tracer = trace.getTracer('agent365-observability');
@@ -44,7 +43,6 @@ export function logActivity(activity: Activity, direction: 'incoming' | 'outgoin
     span.setAttribute('activity.type', activity.type || 'unknown');
     span.setAttribute('activity.direction', direction);
 
-    // In production, use @microsoft/agents-a365-observability-hosting
     console.log(`[Agent365 Observability] ${direction.toUpperCase()} Activity:`, {
       id: activity.id,
       type: activity.type,

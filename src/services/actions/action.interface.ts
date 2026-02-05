@@ -45,11 +45,5 @@ export interface IActionExecutor {
   /**
    * Execute all actions in batch
    */
-  executeAll(
-    todos: Todo[],
-    risks: Risk[],
-    meetingTitle: string,
-    decisionsCount: number,
-    shouldNotify: boolean
-  ): Promise<ActionResult[]>;
+  executeAll(todos: Todo[], risks: Risk[]): Promise<ActionResult[]>;
 }

@@ -10,12 +10,12 @@ Microsoft 365 Agents SDK と統合された外部エージェントで、Copilot
 ## 🎯 機能概要
 
 - **POST /api/messages**: Copilot Studio / Teams の統合エンドポイント
-  - **Bot Framework Activity**: Agent 365 SDK パターンによる高度な統合
-  - **Direct JSON**: レガシー互換の JSON API
+  - **Microsoft 365 Agent Activity**: Agent 365 SDK による Activity プロトコル対応
+  - **Direct JSON API**: 直接 JSON リクエスト対応（JWT 認証あり）
 - **Entra ID 認証**: OAuth 2.0 JWT Bearer トークン検証（Client Credentials flow）
 - **GitHub Models 連携**: 複数モデル（gpt-4o, o1-preview など）での抽出と評価
-- **Microsoft Graph API**: approve=true 時に Planner タスク作成 / Teams 通知を実行
-- **Agent 365 SDK**: Bot Framework + Adaptive Cards による Teams 統合
+- **Microsoft Graph API**: approve=true 時に Planner タスク作成を実行
+- **Agent 365 SDK 統合**: 公式 Microsoft 365 Agents SDK および Agent 365 SDK 拡張
 - **OpenTelemetry**: リクエストから応答までの observability（Console / OTLP exporter 対応）
 - **Dev Tunnel**: localhost:3978 を https 公開し M365 から到達可能に
 

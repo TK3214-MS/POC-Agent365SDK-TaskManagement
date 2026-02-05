@@ -1,6 +1,9 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { trace } from '@opentelemetry/api';
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+// Graph SDK responses are typed as 'any' - we use type assertions for safety
+
 /**
  * Teams notification result
  */

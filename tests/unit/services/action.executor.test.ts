@@ -62,21 +62,21 @@ describe('Action Executor', () => {
       ];
       const risks: Risk[] = [{ text: 'Risk 1', severity: 'medium', confidence: 0.8 }];
 
-      const results = await executor.executeAll(todos, risks, 'Meeting', 2, true);
+      const results = await executor.executeAll(todos, risks);
 
-      // 2 todos + 1 risk + 1 notification = 4 results
-      expect(results.length).toBe(4);
-      expect(results.filter((r) => r.success).length).toBe(4);
+      // 2 todos + 1 risk = 3 results (notifications handled separately in route)
+      expect(results.length).toBe(3);
+      expect(results.filter((r) => r.success).length).toBe(3);
     });
 
-    it('should skip notification if shouldNotify is false', async () => {
+    it('should execute tasks and risks without notifications', async () => {
       const executor = new MockActionExecutor();
       const todos: Todo[] = [{ text: 'Task 1', confidence: 0.9 }];
       const risks: Risk[] = [];
 
-      const results = await executor.executeAll(todos, risks, 'Meeting', 1, false);
+      const results = await executor.executeAll(todos, risks);
 
-      // Only 1 task, no notification
+      // Only 1 task
       expect(results.length).toBe(1);
       expect(results[0]?.type).toBe('createTask');
     });

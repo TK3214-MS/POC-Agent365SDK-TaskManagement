@@ -5,7 +5,7 @@ import { createServer } from './server.js';
 /**
  * Main entry point for the external agent
  */
-async function main(): Promise<void> {
+function main(): void {
   console.log('🚀 Starting External Agent for Copilot Studio...');
 
   // Initialize OpenTelemetry
@@ -23,10 +23,10 @@ async function main(): Promise<void> {
   });
 
   // Graceful shutdown
-  const shutdown = async (): Promise<void> => {
+  const shutdown = (): void => {
     console.log('\n🛑 Shutting down gracefully...');
-    server.close(async () => {
-      await shutdownTelemetry(sdk);
+    server.close(() => {
+      void shutdownTelemetry(sdk);
       process.exit(0);
     });
   };
@@ -35,7 +35,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown);
 }
 
-main().catch((error) => {
+try {
+  main();
+} catch (error) {
   console.error('❌ Fatal error during startup:', error);
   process.exit(1);
-});
+}

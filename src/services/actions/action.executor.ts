@@ -122,10 +122,7 @@ export class GraphActionExecutor implements IActionExecutor {
 
   async executeAll(
     todos: Todo[],
-    risks: Risk[],
-    _meetingTitle: string,
-    _decisionsCount: number,
-    shouldNotify: boolean
+    risks: Risk[]
   ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
 
@@ -139,13 +136,6 @@ export class GraphActionExecutor implements IActionExecutor {
     for (const risk of risks) {
       const result = await this.executeCreateRisk(risk);
       results.push(result);
-    }
-
-    // Send notification (if enabled)
-    if (shouldNotify) {
-      // Note: In production, channelId and teamId should be configured
-      // For now, we skip notification if not configured
-      console.log('ℹ️ Notification skipped: channelId/teamId not configured');
     }
 
     return results;
@@ -164,38 +154,32 @@ export class MockActionExecutor implements IActionExecutor {
   ): Promise<ActionResult> {
     console.log(`[MOCK] Sending notification for: ${meetingTitle}`);
     console.log(`[MOCK] Decisions: ${decisionsCount}, Todos: ${todosCount}, Risks: ${risksCount}`);
-    return {
+    return Promise.resolve({
       type: 'notify' as const,
       success: true,
       details: { mockMessageId: 'mock-123', mockChannelId: 'mock-channel' },
-    };
+    });
   }
 
   async executeCreateTask(todo: Todo): Promise<ActionResult> {
     console.log(`[MOCK] Creating task: ${todo.text}`);
-    return {
+    return Promise.resolve({
       type: 'createTask' as const,
       success: true,
       details: { mockTaskId: `mock-task-${Date.now()}`, taskTitle: todo.text },
-    };
+    });
   }
 
   async executeCreateRisk(risk: Risk): Promise<ActionResult> {
     console.log(`[MOCK] Creating risk: ${risk.text} (${risk.severity})`);
-    return {
+    return Promise.resolve({
       type: 'createRisk' as const,
       success: true,
       details: { mockRiskId: `mock-risk-${Date.now()}`, riskText: risk.text },
-    };
+    });
   }
 
-  async executeAll(
-    todos: Todo[],
-    risks: Risk[],
-    meetingTitle: string,
-    decisionsCount: number,
-    shouldNotify: boolean
-  ): Promise<ActionResult[]> {
+  async executeAll(todos: Todo[], risks: Risk[]): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
 
     for (const todo of todos) {
@@ -204,12 +188,6 @@ export class MockActionExecutor implements IActionExecutor {
 
     for (const risk of risks) {
       results.push(await this.executeCreateRisk(risk));
-    }
-
-    if (shouldNotify) {
-      results.push(
-        await this.executeNotify(meetingTitle, decisionsCount, todos.length, risks.length)
-      );
     }
 
     return results;

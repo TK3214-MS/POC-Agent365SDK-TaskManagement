@@ -25,10 +25,10 @@ export class Agent365MessageHandler {
 
         // Parse message text as JSON payload
         const messageText = activity.text || '{}';
-        let payload;
+        let payload: unknown;
 
         try {
-          payload = JSON.parse(messageText);
+          payload = JSON.parse(messageText) as unknown;
         } catch {
           // If not JSON, treat as plain text meeting transcript
           payload = {
@@ -79,10 +79,7 @@ export class Agent365MessageHandler {
 
             const results = await executor.executeAll(
               enrichedTodos,
-              extractionResult.risks,
-              validatedPayload.meetingTitle,
-              extractionResult.decisions.length,
-              validatedPayload.policy.allowAutoNotify
+              extractionResult.risks
             );
 
             executionResults = results;
