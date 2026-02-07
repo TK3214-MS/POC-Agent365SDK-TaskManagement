@@ -11,11 +11,12 @@ import { createActionExecutor } from '../services/actions/action.executor.js';
 import { Agent365MessageHandler } from '../services/agent365/message-handler.js';
 import { logActivity } from '../services/agent365/observability.js';
 import { sendMeetingSummaryNotification } from '../services/agent365/notifications.js';
+import { env } from '../config/env.js';
 
 const router = Router();
 
-// Agent 365 Message Handler instance
-const messageHandler = new Agent365MessageHandler();
+// Agent 365 Message Handler instance with Adaptive Cards configuration
+const messageHandler = new Agent365MessageHandler(env.useAdaptiveCards);
 
 /**
  * POST /api/messages

@@ -1,6 +1,7 @@
 import { GitHubModelsClient } from './github-models.service.js';
 import { Decision, Todo, Risk, ExecutiveSummary } from '../../schemas/response.schema.js';
 import { trace } from '@opentelemetry/api';
+import { retryWithBackoff, circuitBreakers, AgentError, ErrorType } from '../../utils/error-handler.util.js';
 
 /**
  * Extraction result from LLM
@@ -130,6 +131,7 @@ Please extract decisions, todos, risks, executive summary, and generate follow-u
 
 /**
  * Extract structured data from meeting transcript using LLM
+ * Includes retry logic and circuit breaker pattern
  */
 export async function extractMeetingData(
   meetingTitle: string,
@@ -150,11 +152,37 @@ export async function extractMeetingData(
       const systemPrompt = getSystemPrompt(outputLanguage);
       const userPrompt = getUserPrompt(meetingTitle, meetingTranscript, attendees, defaultDueDays);
 
-      const result = await client.generateStructured<ExtractionResult>(
-        systemPrompt,
-        userPrompt,
-        EXTRACTION_SCHEMA
-      );
+      // Use circuit breaker and retry logic for GitHub Models API
+      const result = await circuitBreakers.githubModels.execute(async () => {
+        return await retryWithBackoff(
+          async () => {
+            try {
+              return await client.generateStructured<ExtractionResult>(
+                systemPrompt,
+                userPrompt,
+                EXTRACTION_SCHEMA
+              );
+            } catch (error) {
+              const err = error as Error;
+              // Wrap errors with AgentError for better context
+              throw new AgentError(
+                ErrorType.GITHUB_MODELS,
+                `Failed to extract meeting data: ${err.message}`,
+                500,
+                { originalError: err.message },
+                true // retryable
+              );
+            }
+          },
+          {
+            maxAttempts: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 5000,
+            backoffMultiplier: 2,
+          },
+          'GitHub Models extraction'
+        );
+      });
 
       span.setAttribute('extraction.decisions.count', result.decisions.length);
       span.setAttribute('extraction.todos.count', result.todos.length);
@@ -164,6 +192,7 @@ export async function extractMeetingData(
       return result;
     } catch (error) {
       span.setStatus({ code: 2, message: (error as Error).message });
+      span.recordException(error as Error);
       throw error;
     } finally {
       span.end();

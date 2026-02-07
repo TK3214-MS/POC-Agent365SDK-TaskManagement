@@ -36,6 +36,10 @@ const EnvSchema = z.object({
     .string()
     .default('true')
     .transform((val) => val.toLowerCase() === 'true'),
+  USE_ADAPTIVE_CARDS: z
+    .string()
+    .default('false')
+    .transform((val) => val.toLowerCase() === 'true'),
 });
 
 /**
@@ -73,6 +77,7 @@ function parseEnv(): EnvConfig {
     otelServiceName: result.data.OTEL_SERVICE_NAME,
     otelLogLevel: result.data.OTEL_LOG_LEVEL,
     piiFilterEnabled: result.data.PII_FILTER_ENABLED,
+    useAdaptiveCards: result.data.USE_ADAPTIVE_CARDS,
   };
 }
 

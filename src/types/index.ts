@@ -27,6 +27,7 @@ export interface EnvConfig {
   otelServiceName: string;
   otelLogLevel: string;
   piiFilterEnabled: boolean;
+  useAdaptiveCards: boolean;
 }
 
 /**

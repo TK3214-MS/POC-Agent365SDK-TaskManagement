@@ -1,35 +1,47 @@
 # Agent 365 SDK 統合ガイド
 
-このドキュメントでは、Microsoft Agent 365 SDK の統合方法と、本プロジェクトでの実装パターンについて説明します。
+このドキュメントでは、Microsoft 365 Agents SDKの統合方法と、本プロジェクトでの実装パターンについて説明します。
 
 ## 📦 統合されたパッケージ
 
-### コアパッケージ
+### Microsoft 365 Agents SDK（コア）
 
 ```json
 {
-  "@microsoft/teams-ai": "^1.5.0",
-  "@microsoft/adaptivecards-tools": "^1.1.0",
-  "adaptivecards": "^3.0.4",
-  "botbuilder": "^4.23.1",
-  "botbuilder-core": "^4.23.1"
+  "@microsoft/agents-activity": "^1.2.2",
+  "@microsoft/agents-hosting": "^1.2.2"
+}
+```
+
+### Agent 365 SDK（拡張機能 - プレビュー）
+
+```json
+{
+  "@microsoft/agents-a365-notifications": "^0.1.0-preview.30",
+  "@microsoft/agents-a365-observability": "^0.1.0-preview.30",
+  "@microsoft/agents-a365-observability-hosting": "^0.1.0-preview.64",
+  "@microsoft/agents-a365-runtime": "^0.1.0-preview.30",
+  "@microsoft/agents-a365-tooling": "^0.1.0-preview.30"
 }
 ```
 
 ### 主要コンポーネント
 
-1. **Bot Framework Adapter** (`src/agent365/bot-adapter.ts`)
-   - Microsoft Bot Framework との通信を処理
-   - エラーハンドリングとトレース機能を提供
+1. **Agent365MessageHandler** (`src/services/agent365/message-handler.ts`)
+   - Activity プロトコルに基づいたメッセージ処理
+   - JSON ペイロードのパースと検証
+   - GitHub Models による議事録抽出
+   - Graph API 統合（タスク作成）
 
-2. **Activity Handler** (`src/agent365/activity-handler.ts`)
-   - Bot Framework Activity パターンに基づいた実装
-   - メッセージ処理・会員追加イベント等を管理
+2. **Observability** (`src/services/agent365/observability.ts`)
    - OpenTelemetry との統合
+   - Activity のトレーシングとロギング
+   - エラー追跡とスパン管理
 
-3. **Adaptive Cards** (`src/agent365/adaptive-cards.ts`)
-   - リッチな UI カードの生成
-   - Teams / Copilot Studio での表示最適化
+3. **Notifications** (`src/services/agent365/notifications.ts`)
+   - 汎用通知サービス
+   - 優先度ベースのルーティング
+   - 会議サマリー通知
 
 ## 🔧 アーキテクチャ
 
@@ -58,9 +70,9 @@ Response (Adaptive Card / JSON)
 
 本実装は以下の 2 つのモードをサポートします：
 
-#### 1. **Bot Framework Activity モード**（Agent 365 SDK）
+#### 1. **Microsoft 365 Activity モード**（Agent 365 SDK）
 
-Bot Framework の Activity 形式でリクエストを受け取ります：
+@microsoft/agents-activity の Activity 形式でリクエストを受け取ります：
 
 ```json
 {
@@ -76,10 +88,10 @@ Bot Framework の Activity 形式でリクエストを受け取ります：
 ```
 
 **特徴:**
-- Bot Framework Adapter を使用
-- Activity Handler パターンで処理
-- Adaptive Cards による応答
-- Teams / Copilot Studio の高度な機能を利用可能
+- @microsoft/agents-activity による Activity プロトコル
+- Agent365MessageHandler で処理
+- Markdown テキスト + JSON attachment による応答
+- OpenTelemetry 統合によるトレーシング
 
 #### 2. **Direct JSON モード**（レガシー互換）
 
@@ -102,37 +114,30 @@ Bot Framework の Activity 形式でリクエストを受け取ります：
 
 ### Copilot Studio での設定
 
-#### Bot Framework モードで接続
+#### Activity モードで接続
 
-1. **Bot チャンネル登録**
-   - Azure Portal → **Bot Services** → **Create**
-   - Messaging endpoint: `https://<your-tunnel>.devtunnels.ms/api/messages`
-   - Microsoft App ID: `API_CLIENT_ID`
-   - Password/Secret: `GRAPH_CLIENT_SECRET`
+1. **外部エージェント接続を作成**
+   - Copilot Studio → 「設定」→「外部エージェント」
+   - メッセージングエンドポイント: `https://<your-tunnel>.devtunnels.ms/api/messages`
 
-2. **Copilot Studio 設定**
-   - 「スキル」→「Bot Framework スキル」を追加
-   - Manifest URL を設定（または手動で Bot ID を入力）
+2. **認証設定（オプション）**
+   - Activity モードでは JWT 認証をスキップ
+   - Activity の送信元検証は Activity プロトコル自体で実施
 
-3. **環境変数設定**
-   ```bash
-   BOT_ID=<API_CLIENT_ID>
-   BOT_PASSWORD=<GRAPH_CLIENT_SECRET>
-   ```
-
-#### Direct JSON モードで接続（従来通り）
+#### Direct JSON モードで接続
 
 README.md の「Copilot Studio との連携手順」を参照してください。
 
 ### プログラムからの呼び出し
 
-#### Bot Framework SDK を使用
+#### @microsoft/agents-activity を使用
 
 ```typescript
-import { TurnContext, ActivityTypes } from 'botbuilder';
+import { Activity } from '@microsoft/agents-activity';
 
-const activity = {
-  type: ActivityTypes.Message,
+const activity: Activity = {
+  type: 'message',
+  id: 'msg-123',
   text: JSON.stringify({
     meetingTitle: 'Team Sync',
     meetingTranscript: 'Discussion about Q1 goals...',
@@ -141,11 +146,14 @@ const activity = {
   from: { id: 'user123', name: 'Alice' },
   recipient: { id: 'bot', name: 'Task Management Agent' },
   conversation: { id: 'conv123' },
-  channelId: 'directline',
-  serviceUrl: 'https://...',
 };
 
-// POST to /api/messages with Bot Framework Activity
+// POST to /api/messages with Activity
+fetch('https://.../api/messages', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(activity),
+});
 ```
 
 #### Direct JSON API
@@ -165,75 +173,107 @@ const response = await fetch('https://.../api/messages', {
 });
 ```
 
-## 🎨 Adaptive Cards
+## 📄 応答フォーマット
 
-### 応答の表示
+### Activity レスポンス
 
-Agent 365 SDK モードでは、Adaptive Cards を使用してリッチな UI を提供します：
+Activity モードでは、Markdown テキスト + JSON attachment で応答を返します：
 
-- **FactSet**: 集計情報（進捗、決定数、タスク数、リスク数）
-- **セクション分け**: 決定/タスク/リスク/フォローアップ質問
-- **カラーコーディング**: リスクレベルに応じた色分け
-- **インタラクティブ要素**: 将来的にアクション ボタンを追加可能
+**text フィールド（Markdown）:**
+- 会議サマリーのヘッダー
+- 進捗状況
+- 決定事項リスト
+- アクションアイテムリスト
+- リスクリスト
+- トレースID
 
-### カスタマイズ
+**attachments フィールド（JSON）:**
+- contentType: `application/json`
+- content: 完全な ResponsePayload（executives、decisions、todos、risks 等）
 
-`src/agent365/adaptive-cards.ts` を編集することで、カードのレイアウトをカスタマイズできます：
+### レスポンス例
 
 ```typescript
-// アクションボタンの追加例
-card.actions = [
-  {
-    type: 'Action.Submit',
-    title: 'Approve All Tasks',
-    data: { action: 'approve' },
-  },
-];
+{
+  type: 'message',
+  text: '# 📋 Meeting Summary\n\n**Progress:** Good progress...',
+  attachments: [
+    {
+      contentType: 'application/json',
+      content: {
+        executiveSummary: { /* ... */ },
+        decisions: [ /* ... */ ],
+        todos: [ /* ... */ ],
+        risks: [ /* ... */ ],
+        traceId: 'abc-123'
+      }
+    }
+  ]
+}
 ```
 
 ## 🔍 トラブルシューティング
 
-### Bot Framework Activity が認識されない
+### Activity が認識されない
 
-**原因**: リクエストに `type`, `id`, `serviceUrl` フィールドがない
+**原因**: リクエストに `type`, `id`, `conversation` フィールドがない
 
-**解決**: Bot Framework Emulator または Direct Line API を使用して正しい形式でリクエストを送信
+**解決**: Activity オブジェクトの必須フィールドを確認し、@microsoft/agents-activity の型に準拠
 
-### "appId or appPassword is required" エラー
+### JSON パースエラー
 
-**原因**: Bot Framework の認証情報が設定されていない
+**原因**: activity.text が有効な JSON ではない
 
-**解決**: 
+**解決**: activity.text に JSON 文字列を設定、または plain text として処理される
+
+### OpenTelemetry トレースが表示されない
+
+**原因**: OTEL_EXPORTER_TYPE の設定が正しくない
+
+**解決**:
 ```bash
-BOT_ID=<your-bot-id>
-BOT_PASSWORD=<your-bot-password>
+OTEL_EXPORTER_TYPE=console  # コンソール出力
+# または
+OTEL_EXPORTER_TYPE=otlp
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 ```
-
-### Adaptive Card が表示されない
-
-**原因**: クライアントが Adaptive Cards をサポートしていない
-
-**解決**: Teams / Copilot Studio を使用するか、JSON モードに切り替え
 
 ## 📚 参考資料
 
 - [Microsoft 365 Agents SDK](https://learn.microsoft.com/microsoft-365/agents-sdk/)
-- [Bot Framework Documentation](https://docs.microsoft.com/azure/bot-service/)
-- [Teams AI Library](https://github.com/microsoft/teams-ai)
-- [Adaptive Cards](https://adaptivecards.io/)
+- [Agents for JavaScript GitHub](https://github.com/microsoft/Agents-for-js)
 - [Agent 365 Samples](https://github.com/microsoft/Agent365-Samples)
+- [@microsoft/agents-activity NPM](https://www.npmjs.com/package/@microsoft/agents-activity)
+- [@microsoft/agents-hosting NPM](https://www.npmjs.com/package/@microsoft/agents-hosting)
 
 ## 🔄 移行ガイド
 
-### 既存の JSON クライアントから Agent 365 SDK への移行
+### 既存の JSON API から Activity モードへの移行
 
-1. Bot チャンネル登録を作成
-2. クライアントを Bot Framework SDK に更新
-3. Activity 形式でリクエストを送信
-4. Adaptive Cards 形式で応答を受信
+1. **リクエスト形式の変更**
+   ```typescript
+   // 従来の JSON
+   { meetingTitle: '...', meetingTranscript: '...', approve: false }
+   
+   // Activity モード
+   { 
+     type: 'message', 
+     id: '...', 
+     text: '{"meetingTitle":"...","meetingTranscript":"...","approve":false}',
+     conversation: { id: '...' },
+     from: { id: '...' },
+     recipient: { id: '...' }
+   }
+   ```
 
-完全な移行手順は [MIGRATION.md](./MIGRATION.md) を参照してください。
+2. **レスポンス処理の変更**
+   - Activity レスポンスの `text` フィールドから Markdown を取得
+   - `attachments[0].content` から完全な JSON データを取得
+
+3. **認証**
+   - Activity モードでは JWT 認証不要（Activity プロトコルで検証）
+   - JSON モードは引き続き Entra ID JWT 認証を使用
 
 ---
 
-**Note**: Agent 365 SDK は Microsoft の進化する技術スタックです。最新のベストプラクティスについては、公式ドキュメントを確認してください。
+**Note**: Microsoft 365 Agents SDK は公式サポートされているパッケージです。最新の仕様については公式ドキュメントを参照してください。

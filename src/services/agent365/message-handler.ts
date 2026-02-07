@@ -6,12 +6,19 @@ import { createGitHubModelsClient } from '../llm/github-models.service.js';
 import { extractMeetingData, enrichTodos } from '../llm/extraction.service.js';
 import { createGraphClient } from '../graph/graph.client.js';
 import { createActionExecutor } from '../actions/action.executor.js';
+import { createAdaptiveCardAttachment } from './adaptive-cards.js';
 
 /**
  * Microsoft 365 Agent message handler
  * Processes incoming messages using Microsoft 365 Agent SDK patterns
  */
 export class Agent365MessageHandler {
+  private useAdaptiveCards: boolean;
+
+  constructor(useAdaptiveCards: boolean = false) {
+    this.useAdaptiveCards = useAdaptiveCards;
+  }
+
   /**
    * Handle incoming Activity
    */
@@ -118,6 +125,22 @@ export class Agent365MessageHandler {
    */
   private createSuccessResponse(incomingActivity: Activity, payload: ResponsePayload): Activity {
     const formattedText = this.formatResponseText(payload);
+    
+    // Choose attachment format based on configuration
+    const attachments: unknown[] = this.useAdaptiveCards
+      ? [
+          createAdaptiveCardAttachment(payload),
+          {
+            contentType: 'application/json',
+            content: payload,
+          },
+        ]
+      : [
+          {
+            contentType: 'application/json',
+            content: payload,
+          },
+        ];
 
     return {
       type: 'message',
@@ -126,12 +149,7 @@ export class Agent365MessageHandler {
       conversation: incomingActivity.conversation,
       replyToId: incomingActivity.id,
       text: formattedText,
-      attachments: [
-        {
-          contentType: 'application/json',
-          content: payload,
-        },
-      ],
+      attachments,
     } as Activity;
   }
 

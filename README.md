@@ -54,7 +54,8 @@ Microsoft 365 Agents SDK と統合された外部エージェントで、Copilot
 Bot Activity      JSON Request
 (Agent 365)       (Direct API)
        ↓                ↓
-  Adaptive Card    JSON Response
+Activity Response JSON Response
+(Markdown+JSON)   (JSON only)
 ```
 
 詳細は [docs/AGENT365_INTEGRATION.md](./docs/AGENT365_INTEGRATION.md) を参照してください。
@@ -176,10 +177,6 @@ POC-Agent365SDK-TaskManagement/
 ├── src/
 │   ├── index.ts                   # エントリーポイント
 │   ├── server.ts                  # Express サーバー
-│   ├── agent365/                  # 🆕 Agent 365 SDK 統合
-│   │   ├── bot-adapter.ts         # Bot Framework Adapter
-│   │   ├── activity-handler.ts    # Activity Handler パターン
-│   │   └── adaptive-cards.ts      # Adaptive Cards 生成
 │   ├── config/
 │   │   ├── env.ts                 # 環境変数の検証
 │   │   └── telemetry.ts           # OpenTelemetry 初期化
@@ -192,6 +189,10 @@ POC-Agent365SDK-TaskManagement/
 │   │   ├── request.schema.ts      # リクエスト schema (zod)
 │   │   └── response.schema.ts     # レスポンス schema (zod)
 │   ├── services/
+│   │   ├── agent365/              # 🆕 Agent 365 SDK 統合
+│   │   │   ├── message-handler.ts # Activity メッセージ処理
+│   │   │   ├── observability.ts   # OpenTelemetry 統合
+│   │   │   └── notifications.ts   # 通知サービス
 │   │   ├── llm/
 │   │   │   ├── github-models.service.ts
 │   │   │   ├── extraction.service.ts
@@ -209,16 +210,16 @@ POC-Agent365SDK-TaskManagement/
 │   │   └── error-handler.util.ts
 │   └── types/
 │       └── index.ts
-└── tests/                         # 47 テスト（Agent 365 SDK を含む）
-    ├── unit/
-    │   ├── agent365/              # 🆕 Agent 365 SDK テスト
-    │   │   ├── bot-adapter.test.ts
-    │   │   └── adaptive-cards.test.ts
-    │   ├── middleware/
-    │   ├── schemas/
-    │   ├── services/
-    │   └── utils/
-    └── integration/
+└── tests/                         # 46 テスト（Agent 365 SDK を含む）
+    └── unit/
+        ├── agent365/              # 🆕 Agent 365 SDK テスト
+        │   ├── message-handler.test.ts
+        │   ├── observability.test.ts
+        │   └── notifications.test.ts
+        ├── middleware/
+        ├── schemas/
+        ├── services/
+        └── utils/
 ```
 
 </details>

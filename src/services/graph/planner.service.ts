@@ -2,6 +2,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { env } from '../../config/env.js';
 import { trace } from '@opentelemetry/api';
 import { Todo } from '../../schemas/response.schema.js';
+import { retryWithBackoff, circuitBreakers, AgentError, ErrorType } from '../../utils/error-handler.util.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 // Graph SDK responses are typed as 'any' - we use type assertions for safety
@@ -45,7 +46,32 @@ export async function createPlannerTask(
         }),
       };
 
-      const response = await graphClient.api('/planner/tasks').post(taskPayload);
+      // Use circuit breaker and retry logic for Graph API
+      const response = await circuitBreakers.graphAPI.execute(async () => {
+        return await retryWithBackoff(
+          async () => {
+            try {
+              return await graphClient.api('/planner/tasks').post(taskPayload);
+            } catch (error) {
+              const err = error as Error;
+              throw new AgentError(
+                ErrorType.GRAPH_API,
+                `Failed to create Planner task: ${err.message}`,
+                500,
+                { taskTitle: todo.text, originalError: err.message },
+                true // retryable
+              );
+            }
+          },
+          {
+            maxAttempts: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 3000,
+            backoffMultiplier: 2,
+          },
+          'Graph API - Create Planner Task'
+        );
+      });
 
       span.setAttribute('task.id', response.id as string);
       span.setStatus({ code: 0 });
@@ -57,7 +83,8 @@ export async function createPlannerTask(
       };
     } catch (error) {
       span.setStatus({ code: 2, message: (error as Error).message });
-      throw new Error(`Failed to create Planner task: ${(error as Error).message}`);
+      span.recordException(error as Error);
+      throw error;
     } finally {
       span.end();
     }
