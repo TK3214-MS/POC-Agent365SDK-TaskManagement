@@ -230,6 +230,36 @@ POC-Agent365SDK-TaskManagement/
 - **PII フィルタリング**: ログ・トレースに議事録原文などの機密情報を出力しない
 - **Helmet**: セキュリティヘッダーを自動設定
 - **環境変数検証**: 起動時に zod でバリデーション
+- **エラーハンドリング**: リトライロジックとサーキットブレーカーパターン
+
+## ⚖️ ライセンス要件
+
+### 開発環境（POC/テスト）
+
+- ✅ **ライセンス不要**
+- SDK パッケージは npm で公開されており、開発・テスト目的での使用は自由
+- ローカル環境での動作確認、Dev Tunnel での検証が可能
+
+### 本番環境
+
+本番環境にデプロイする場合、以下のライセンスが必要です：
+
+- ✅ **必須**: Microsoft 365 ライセンス（E3/E5 等）
+- ✅ **必須**: Copilot Studio ライセンス（外部エージェント接続用）
+- ⚠️ **オプション**: Teams Premium（Teams 統合の高度な機能を使用する場合）
+- ⚠️ **プレビュー機能**: Agent 365 SDK 拡張機能（`@microsoft/agents-a365-*`）は正式リリース時に要件が変わる可能性があります
+
+### ライセンス確認方法
+
+```bash
+# Microsoft 365 管理センターでライセンス確認
+https://admin.microsoft.com/Adminportal/Home#/licenses
+
+# Copilot Studio のライセンス状況
+https://copilotstudio.microsoft.com/
+```
+
+詳細は [Microsoft 365 Agents SDK ドキュメント](https://learn.microsoft.com/microsoft-365/agents-sdk/) を参照してください。
 
 ## 📊 OpenTelemetry
 
@@ -500,9 +530,20 @@ devtunnel delete <tunnel-id>
 - トークンエンドポイントが正しいか確認
 - Client Secret が有効期限内か確認
 
+**解決手順:**
+```bash
+# トークンの有効性を確認
+curl -X POST https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token \
+  -d "client_id=<CLIENT_ID>" \
+  -d "client_secret=<CLIENT_SECRET>" \
+  -d "scope=api://<API_CLIENT_ID>/.default" \
+  -d "grant_type=client_credentials"
+```
+
 ### ❌ "Application ID not allowed"
 
 - `.env` の `ALLOWED_APPIDS` に呼び出し元の Client ID を追加
+- カンマ区切りで複数の App ID を指定可能
 
 ### ❌ Dev Tunnel が接続できない
 
@@ -510,18 +551,63 @@ devtunnel delete <tunnel-id>
 # トンネルを再作成
 devtunnel delete <tunnel-id>
 ./scripts/devtunnel-setup.sh
+
+# トンネル一覧を確認
+devtunnel list
 ```
 
 ### ❌ GitHub Models でエラー
 
 - `GITHUB_TOKEN` が有効か確認：[https://github.com/settings/tokens](https://github.com/settings/tokens)
 - GitHub Models へのアクセス権があるか確認
+- レートリミットに達していないか確認
+
+**リトライ機能:**
+- 自動的に最大 3 回リトライされます（指数バックオフ）
+- サーキットブレーカーが連続 5 回の失敗で作動します
 
 ### ❌ Graph API でエラー（approve=true 時）
 
 - `GRAPH_CLIENT_ID` / `GRAPH_CLIENT_SECRET` を確認
 - Graph API の権限（`Tasks.ReadWrite`, `ChannelMessage.Send` など）が付与されているか確認
 - `PLANNER_PLAN_ID` / `PLANNER_BUCKET_ID` が正しいか確認
+
+**デバッグ方法:**
+```bash
+# OpenTelemetry トレースを確認
+OTEL_EXPORTER_TYPE=console npm run dev
+
+# ログレベルを変更
+OTEL_LOG_LEVEL=debug npm run dev
+```
+
+### ❌ テストが失敗する
+
+```bash
+# 依存関係を再インストール
+rm -rf node_modules package-lock.json
+npm install
+
+# ビルドキャッシュをクリア
+rm -rf dist
+npm run build
+
+# 単体テストのみ実行（統合テストを除外）
+npm run test:unit
+```
+
+### ❌ ポート 3978 が使用中
+
+```bash
+# ポートを使用しているプロセスを確認
+lsof -i :3978
+
+# プロセスを終了
+kill -9 <PID>
+
+# または別のポートを使用
+PORT=3979 npm run dev
+```
 
 ---
 

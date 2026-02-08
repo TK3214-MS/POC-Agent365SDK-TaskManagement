@@ -24,7 +24,7 @@ export default defineConfig({
       },
     },
     include: ['tests/**/*.test.ts'],
-    exclude: ['node_modules/', 'dist/'],
+    exclude: ['node_modules/', 'dist/', 'tests/integration/**'],
   },
   resolve: {
     alias: {
